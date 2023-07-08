@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+import re
 import string
 from base64 import b64decode
 
@@ -9,6 +10,8 @@ import aiohttp
 import aiofiles # type: ignore
 import aiofiles.os # type: ignore
 from aiohttp import web
+
+PALETTE_PATTERN = re.compile("^(?:(?:#?[0-9A-F]{6}|X)\,){15}(?:#?[0-9A-F]{6}|X)$")
 
 def gen_id() -> str:
   pool: str = string.ascii_letters + string.digits
@@ -51,20 +54,33 @@ routes = web.RouteTableDef()
 async def post_convert(request: web.Request) -> web.Response:
   body = await request.json()
   if "url" in body and "data" in body:
-     return web.Response(status=400,body="url and data passed in json")
+    return web.Response(status=400,body="url and data passed in json")
   dithering = body.get("dithering","none")
-  pal = body.get("cc-palette",False)
+  use_cc_palette = body.get("cc-palette",False)
   binary = body.get("binary",False)
   width = body.get("width",None)
+  if not isinstance(width,int) and width is not None:
+    return web.Response(status=400,body="width is not an integer")
   height = body.get("height",None)
+  if not isinstance(height,int) and height is not None:
+    return web.Response(status=400,body="height is not an integer")
   fmt = body.get("format","blit")
 
+  palette = body.get("palette",None)
+  if palette is not None:
+    # begin check to ensure it is correct
+    if not PALETTE_PATTERN.match(palette):
+      return web.Response(status=400,body="palette is invalid!")
+  
+  if palette is not None and use_cc_palette:
+    return web.Response(status=400,body="cc-palette and palette passed")
+  
   job_id = gen_id()
   src = f"/tmp/sanjuuni_in{job_id}"
   out: str = f"/tmp/sanjuuni_out{job_id}.blit"
 
   try:
-    cmd = build_sanjuuni(src,out,output=fmt,dithering=dithering,cc_pal=pal,binary=binary,width=width,height=height)
+    cmd = build_sanjuuni(src,out,output=fmt,dithering=dithering,cc_pal=use_cc_palette,binary=binary,width=width,height=height)
     print(cmd)
   except ValueError as e:
     return web.Response(status=400,body=str(e))
