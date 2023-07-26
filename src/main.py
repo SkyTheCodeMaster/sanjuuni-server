@@ -47,7 +47,7 @@ def build_sanjuuni(src: str, out: str, *,
     b = "-B" if binary else ""
     w = f"-W {width}" if width else ""
     h = f"-H {height}" if height else ""
-    cust_pal = f"--palette {palette}" if palette else ""
+    cust_pal = f"--palette {palette.replace('#','')}" if palette else ""
     return builder.format(fmt=fmt,dither=dither,pal=pal,b=b,w=w,h=h, palette=cust_pal, src=src, out=out)
 
 routes = web.RouteTableDef()
