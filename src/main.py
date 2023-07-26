@@ -30,7 +30,7 @@ def build_sanjuuni(src: str, out: str, *,
     if output not in ["bimg","nfp"]:
       raise ValueError("dithering not in bimg, nfp")
     
-    builder = "sanjuuni {fmt} {dither} {pal} {h} {w} {b} {palette} -i {src} -o {out}"
+    builder = "sanjuuni {fmt} {dither} {pal} {h} {w} {b} {palette} --input {src} -o {out}"
     dither = ({
       "threshold": "-t",
       "ordered": "-O",
@@ -79,7 +79,7 @@ async def post_convert(request: web.Request) -> web.Response:
   
   job_id = gen_id()
   src = f"/tmp/sanjuuni_in{job_id}"
-  out: str = f"/tmp/sanjuuni_out{job_id}.blit"
+  out: str = f"/tmp/sanjuuni_out{job_id}.{fmt}"
 
   try:
     cmd = build_sanjuuni(src,out,output=fmt,dithering=dithering,cc_pal=use_cc_palette,binary=binary,width=width,height=height,palette=palette)
@@ -99,17 +99,17 @@ async def post_convert(request: web.Request) -> web.Response:
   except:
     return web.Response(status=400,body="failed parsing data/url")
   
-  async with aiofiles.open(f"/tmp/sanjuuni_in{job_id}","wb") as f:
+  async with aiofiles.open(src,"wb") as f:
     await f.write(data) #type: ignore
   
   # run sanjuuni with asyncio subprocess
   process = await asyncio.subprocess.create_subprocess_shell(cmd)
   code = await process.wait()
   if code == 0:
-    async with aiofiles.open(f"/tmp/sanjuuni_out{job_id}.blit") as f:
+    async with aiofiles.open(out) as f:
       lua = await f.read()
-    await aiofiles.os.remove(f"/tmp/sanjuuni_in{job_id}")
-    await aiofiles.os.remove(f"/tmp/sanjuuni_out{job_id}.blit")
+    await aiofiles.os.remove(src)
+    await aiofiles.os.remove(out)
     return web.Response(body=lua,content_type="text/x-lua")
   else:
     return web.Response(body=f"sanjuuni exited with code {code}",status=500)
