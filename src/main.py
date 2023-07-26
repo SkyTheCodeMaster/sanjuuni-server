@@ -23,13 +23,14 @@ def build_sanjuuni(src: str, out: str, *,
                    dithering: str = "none", 
                    width: int = None, # type: ignore
                    height: int = None, # type: ignore
-                   output: str = "blit") -> str:
+                   output: str = "blit",
+                    palette: str = None) -> str:
     if dithering not in ["threshold","ordered","lab-color","octree","kmeans","none"]:
       raise ValueError("dithering not in threshold, ordered, lab-color, octree, kmeans, none")
     if output not in ["bimg","nfp"]:
       raise ValueError("dithering not in bimg, nfp")
     
-    builder = "sanjuuni {fmt} {dither} {pal} {h} {w} {b} -i {src} -o {out}"
+    builder = "sanjuuni {fmt} {dither} {pal} {h} {w} {b} {palette} -i {src} -o {out}"
     dither = ({
       "threshold": "-t",
       "ordered": "-O",
@@ -46,7 +47,8 @@ def build_sanjuuni(src: str, out: str, *,
     b = "-B" if binary else ""
     w = f"-W {width}" if width else ""
     h = f"-H {height}" if height else ""
-    return builder.format(fmt=fmt,dither=dither,pal=pal,b=b,w=w,h=h, src=src, out=out)
+    cust_pal = f"--palette {palette}" if palette else ""
+    return builder.format(fmt=fmt,dither=dither,pal=pal,b=b,w=w,h=h, palette=cust_pal, src=src, out=out)
 
 routes = web.RouteTableDef()
 
@@ -80,7 +82,7 @@ async def post_convert(request: web.Request) -> web.Response:
   out: str = f"/tmp/sanjuuni_out{job_id}.blit"
 
   try:
-    cmd = build_sanjuuni(src,out,output=fmt,dithering=dithering,cc_pal=use_cc_palette,binary=binary,width=width,height=height)
+    cmd = build_sanjuuni(src,out,output=fmt,dithering=dithering,cc_pal=use_cc_palette,binary=binary,width=width,height=height,palette=palette)
     print(cmd)
   except ValueError as e:
     return web.Response(status=400,body=str(e))
@@ -115,4 +117,4 @@ async def post_convert(request: web.Request) -> web.Response:
 app = web.Application()
 app.add_routes(routes)
 
-web.run_app(app) # type: ignore
+web.run_app(app,host="127.0.0.1",port=21500) # type: ignore
